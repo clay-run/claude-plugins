@@ -1,0 +1,16 @@
+{
+  "name": "clay-plugins",
+  "owner": {
+    "name": "Clay"
+  },
+  "metadata": {
+    "description": "Official Clay plugins for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "clay",
+      "source": "./terracotta",
+      "description": "Build with Clay in Claude Code"
+    }
+  ]
+}

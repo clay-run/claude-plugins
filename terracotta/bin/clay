@@ -1,0 +1,98 @@
+#!/bin/sh
+# Resolves bare `clay` to the platform binary, downloading + checksum-verifying
+# it from the plugin's GitHub release on first use and caching it.
+set -eu
+
+REPO="clay-run/claude-plugins"
+
+# Bootstrap failures must honor the CLI's output contract (apps/cli/AGENTS.md):
+# a JSON error envelope on stderr and a categorical exit code, so an agent that
+# branches on the first `clay` invocation sees the same shape the binary emits.
+die() {
+  printf '{"error":{"code":"%s","message":"%s"}}\n' "$1" "$2" >&2
+  exit "$3"
+}
+
+# Resolve our own path even when invoked as a bare command via PATH.
+self="$0"
+case "$self" in
+  */*) ;;
+  *) self="$(command -v -- "$self")" ;;
+esac
+bin_dir="$(cd -- "$(dirname -- "$self")" && pwd)"
+plugin_root="$(dirname -- "$bin_dir")"
+
+manifest="$plugin_root/.claude-plugin/plugin.json"
+version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" | head -n1)"
+if [ -z "$version" ]; then
+  die "internal_error" "clay: could not read version from $manifest" 1
+fi
+
+os="$(uname -s)"
+arch="$(uname -m)"
+case "$os" in
+  Darwin) os="darwin" ;;
+  Linux) os="linux" ;;
+  *) die "validation_error" "clay: unsupported OS: $os" 2 ;;
+esac
+case "$arch" in
+  arm64 | aarch64) arch="arm64" ;;
+  x86_64 | amd64) arch="x64" ;;
+  *) die "validation_error" "clay: unsupported architecture: $arch" 2 ;;
+esac
+platform="$os-$arch"
+asset="clay-$platform"
+
+if [ -n "${CLAY_CONFIG_HOME:-}" ]; then
+  config_base="$CLAY_CONFIG_HOME"
+elif [ -n "${XDG_CONFIG_HOME:-}" ]; then
+  config_base="$XDG_CONFIG_HOME"
+else
+  config_base="$HOME/.config"
+fi
+cache_dir="$config_base/clay/bin"
+cached="$cache_dir/clay-$version-$platform"
+
+if [ ! -x "$cached" ]; then
+  checksums="$bin_dir/checksums.txt"
+  if [ ! -f "$checksums" ]; then
+    die "internal_error" "clay: missing $checksums (reinstall the plugin from $REPO)" 1
+  fi
+  expected="$(awk -v a="$asset" '$2 == a {print $1}' "$checksums" | head -n1)"
+  if [ -z "$expected" ]; then
+    die "internal_error" "clay: no checksum for $asset (v$version) in $checksums" 1
+  fi
+
+  url="https://github.com/$REPO/releases/download/v$version/$asset"
+  # Progress output is non-JSON, so keep it off the contract path unless asked.
+  if [ -n "${CLAY_DEBUG:-}" ]; then
+    echo "clay: installing CLI $version ($platform)..." >&2
+  fi
+  mkdir -p "$cache_dir"
+  tmp="$cache_dir/.dl-$$"
+  trap 'rm -f "$tmp"' EXIT INT TERM
+  if command -v curl > /dev/null 2>&1; then
+    curl -fsSL "$url" -o "$tmp" || die "network_error" "clay: failed to download the CLI from $url" 5
+  elif command -v wget > /dev/null 2>&1; then
+    wget -qO "$tmp" "$url" || die "network_error" "clay: failed to download the CLI from $url" 5
+  else
+    die "internal_error" "clay: need curl or wget to download the CLI" 1
+  fi
+
+  if command -v sha256sum > /dev/null 2>&1; then
+    actual="$(sha256sum "$tmp" | awk '{print $1}')"
+  elif command -v shasum > /dev/null 2>&1; then
+    actual="$(shasum -a 256 "$tmp" | awk '{print $1}')"
+  else
+    die "internal_error" "clay: need sha256sum or shasum to verify the download" 1
+  fi
+  if [ "$actual" != "$expected" ]; then
+    die "internal_error" "clay: checksum mismatch for $asset (expected $expected, got $actual)" 1
+  fi
+
+  chmod +x "$tmp"
+  mv -f "$tmp" "$cached"
+  trap - EXIT INT TERM
+fi
+
+exec "$cached" "$@"
