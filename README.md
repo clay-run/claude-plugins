@@ -8,7 +8,7 @@ Build with Clay in your AI coding agent — skills, MCP tools, and the Clay CLI.
 
 ```
 /plugin marketplace add clay-run/agent-plugins
-/plugin install clay
+/plugin install clay@clay-plugins
 ```
 
 ### Codex
@@ -49,7 +49,8 @@ In **Claude Code** the bundled `clay` CLI is on the agent's PATH automatically. 
 
 ```
 mkdir -p ~/.local/bin
-printf '#!/bin/sh\nexec "<plugin dir>/terracotta/bin/clay" "$@"\n' > ~/.local/bin/clay
+launcher="$(find ~/.codex ~/.cursor ~/.claude -type f -path '*/bin/clay' 2>/dev/null | sort | tail -1)"
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$launcher" > ~/.local/bin/clay
 chmod +x ~/.local/bin/clay
 ```
 
