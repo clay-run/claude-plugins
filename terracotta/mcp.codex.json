@@ -2,9 +2,7 @@
   "mcpServers": {
     "terracotta": {
       "url": "https://api.clay.com/v3/mcp/terracotta",
-      "headers": {
-        "Authorization": "Bearer ${env:CLAY_API_KEY}"
-      }
+      "bearer_token_env_var": "CLAY_API_KEY"
     }
   }
 }

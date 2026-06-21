@@ -9,7 +9,7 @@ Analyze the current workflow and suggest changes to reduce credit consumption an
 
 ## Process
 
-1. **Read the workflow** using `read_workflow` (full mode) to get all node details
+1. **Read the workflow** using `read` (full mode) to get all node details
 2. **Identify cost drivers** — LLM calls, Clay action usage, model selection
 3. **Present optimization opportunities** with estimated impact
 4. **Apply changes** after user approval

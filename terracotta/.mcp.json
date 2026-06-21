@@ -4,8 +4,7 @@
       "type": "http",
       "url": "${CLAY_API_URL:-https://api.clay.com}/v3/mcp/terracotta",
       "headers": {
-        "Authorization": "Bearer ${CLAY_API_KEY:-not-configured}",
-        "x-clay-api-key": "${CLAY_API_KEY:-not-configured}"
+        "Authorization": "Bearer ${CLAY_API_KEY}"
       }
     }
   }

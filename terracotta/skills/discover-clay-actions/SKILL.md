@@ -7,7 +7,8 @@ allowed-tools: Bash(clay *), Bash(grep *), Bash(cat *), Bash(wc *), Bash(jq *), 
 # Discover Clay Actions
 
 This skill helps you find available Clay actions for use in Clay workflow nodes,
-via the `clay` CLI (on your PATH).
+via the `clay` CLI. (In Codex/Cursor, run the `setup` skill once if `clay` is not
+yet on your PATH.)
 
 Not to be confused with `clay tools` — that lists workspace *function tools*, a
 different concept. For workflow building blocks, use `clay workflows actions`.
@@ -51,14 +52,12 @@ When adding a tool to a node, you can either:
    { "toolType": "clay_action", "actionKey": "...", "actionPackageId": "...", "appAccountId": "app_xyz" }
    ```
 
-The catalog is auto-fetched below into `catalog.json`. If the fetch fails (e.g.
-missing credentials), run `/setup` first.
+Fetch the catalog with the command below. If it fails (e.g. missing
+credentials), run the `setup` skill first.
 
 ```bash
-clay workflows actions list > ${CLAUDE_SKILL_DIR}/catalog.json
+clay workflows actions list > /tmp/clay-actions-catalog.json
 ```
-
-!`clay workflows actions list > ${CLAUDE_SKILL_DIR}/catalog.json && echo "Wrote $(jq '.data | length' ${CLAUDE_SKILL_DIR}/catalog.json) actions to catalog.json" || echo "Fetch failed — run /setup if credentials are not configured"`
 
 ## How to search
 
@@ -67,8 +66,8 @@ Search it for actions matching the user's request (`$ARGUMENTS`) with grep, or
 filter structurally with jq:
 
 ```bash
-grep -i "email" ${CLAUDE_SKILL_DIR}/catalog.json
-jq -r '.data[] | select(.name | test("email";"i")) | "\(.priorityTier) \(.packageId) \(.actionKey) — \(.displayName)"' ${CLAUDE_SKILL_DIR}/catalog.json | sort
+grep -i "email" /tmp/clay-actions-catalog.json
+jq -r '.data[] | select(.name | test("email";"i")) | "\(.priorityTier) \(.packageId) \(.actionKey) — \(.displayName)"' /tmp/clay-actions-catalog.json | sort
 ```
 
 Prefer actions with lower `priorityTier` values and existing `configuredTools`.

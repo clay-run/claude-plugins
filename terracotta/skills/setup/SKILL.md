@@ -1,88 +1,100 @@
 ---
 name: setup
-description: Set up Clay API credentials for the workflow CLI. Use when CLAY_API_KEY is missing, when `clay whoami` fails, or when the user wants to configure their Clay credentials.
-allowed-tools: Bash(clay *), Read, Edit, Write
+description: Make the Clay CLI usable and authenticated. Use when `clay` is not found on PATH, `clay whoami` fails, CLAY_API_KEY is missing, or the user wants to configure Clay. Works in Claude Code, Codex, and Cursor.
+allowed-tools: Bash, Read, Edit, Write
 ---
 
-# Clay Workflow Setup
+# Clay setup
 
-First, check if credentials are already configured. This prints the CLI's real
-exit code on its own line (`exit_code=N`) so a non-zero status is preserved for
-you to read instead of being swallowed:
+This skill makes the `clay` CLI available on your PATH and authenticated. The CLI
+and the Clay MCP server both read the same `CLAY_API_KEY` (the workspace is
+resolved from the key — there is no workspace id to set).
 
-!`clay whoami; echo "exit_code=$?"`
+## 1. Check current state
 
-Read the result by the printed **exit_code and JSON**, not by any status string:
-
-- **exit_code=0** — setup is working. The JSON has `user.name` and `workspace.id`.
-  Tell the user setup is working (name the workspace) and stop here.
-- **exit_code=3** — auth problem. Parse `error.code` from the JSON on stderr:
-  - `auth_missing_api_key` → not configured yet. Continue with the steps below.
-  - `auth_invalid` / `auth_forbidden` → the key is wrong or lacks scope. Continue
-    below to set a valid key.
-- **exit_code=5** — `network_error` / `network_timeout`: a connection problem. Check
-  `CLAY_API_URL` and the network; do not re-collect the key.
-
-Only continue with the steps below if setup is not already working.
-
----
-
-This skill configures your Clay API credentials so the `clay` CLI and the Clay
-MCP server work without manual env var setup. Both read the same `CLAY_API_KEY`
-environment variable, so there is a single credential to manage. The workspace is
-resolved from the API key — there is no separate workspace id to set.
-
-## What you need
-
-1. **API Key** — create one at your workspace settings page (Account tab)
-2. **API URL** — defaults to `https://api.clay.com`, only change for local development
-
-## Steps
-
-### 1. Get or create an API key
-
-Direct the user to their workspace settings to create an API key:
-
-> Go to **https://app.clay.com** → your workspace → **Settings → Account** and
-> create a new API key. Copy it and paste it here.
-
-### 2. Save credentials
-
-Read the existing `.claude/settings.local.json` file in the project root, then
-merge the credentials into the `env` key. Preserve any existing settings (like
-`permissions`).
-
-The file should look like:
-
-```json
-{
-  "permissions": { ... },
-  "env": {
-    "CLAY_API_KEY": "<the api key>",
-    "CLAY_API_URL": "https://api.clay.com"
-  }
-}
-```
-
-This file is gitignored (`.claude/settings.local.json` is in `.gitignore`), so
-credentials won't be committed. The `clay` CLI reads `CLAY_API_KEY` directly from
-the environment, so no separate `clay login` step is needed.
-
-### 3. Restart and resume
-
-Tell the user:
-
-> Credentials saved! Environment variables are loaded at session startup, so you
-> need to restart for them to take effect. Run `/exit`, then `claude --continue`
-> to pick up right where you left off.
-
-## Verifying setup
-
-After restart, run the health check:
+Run this and read the printed **exit_code and JSON**, not any status string:
 
 ```bash
-clay whoami
+clay whoami; echo "exit_code=$?"
 ```
 
-Exit 0 with a `user`/`workspace` JSON object means setup is complete. A non-zero
-exit means the credentials still need fixing — re-read the exit-code guide above.
+- **exit_code=0** with a `user`/`workspace` object → setup already works. Tell the
+  user (name the workspace) and stop.
+- **`clay: command not found`** (or exit 127) → the CLI isn't on your PATH. Do
+  step 2, then step 3.
+- **exit_code=3** (`auth_*`) → the CLI works but isn't authenticated. Skip to step 3.
+- **exit_code=5** (`network_*`) → a connection problem. Check `CLAY_API_URL` and the
+  network; do not re-collect the key.
+
+## 2. Put `clay` on your PATH (only if it was "command not found")
+
+Claude Code adds the plugin's `bin/` to PATH automatically, so this step is only
+needed in Codex and Cursor.
+
+The plugin bundles the CLI launcher at `bin/clay` in the plugin root; it downloads
+and checksum-verifies the real binary on first use. You read this `SKILL.md` from
+`<plugin-root>/skills/setup/SKILL.md`, so the launcher is two directories up at
+`<plugin-root>/bin/clay`. Resolve it to an absolute path (with a search fallback):
+
+```bash
+# Replace <THIS_SKILL_DIR> with the directory you read this SKILL.md from:
+shim="$(cd "<THIS_SKILL_DIR>/../.." 2>/dev/null && pwd)/bin/clay"
+[ -x "$shim" ] || shim="$(find "$HOME/.codex" "$HOME/.cursor" "$HOME/.claude" "$HOME/.config" -type f -path '*/terracotta/bin/clay' 2>/dev/null | sort | tail -n1)"
+[ -x "$shim" ] || { echo "could not locate the bundled clay launcher; reinstall the plugin"; exit 1; }
+```
+
+Install a small forwarder onto your PATH (in `~/.local/bin`). Use a forwarder, not
+a symlink — invoking the launcher by its real absolute path lets it find its own
+plugin files:
+
+```bash
+mkdir -p "$HOME/.local/bin"
+printf '#!/bin/sh\nexec "%s" "$@"\n' "$shim" > "$HOME/.local/bin/clay"
+chmod +x "$HOME/.local/bin/clay"
+```
+
+Ensure `~/.local/bin` is on PATH (for this session and future ones):
+
+```bash
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH"
+     for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+       [ -e "$rc" ] && ! grep -q '.local/bin' "$rc" && printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc"
+     done ;;
+esac
+```
+
+`command -v clay` should now resolve. (If a different `clay` is already on PATH —
+e.g. an old `npm i -g @claypi/cli` — it will take precedence; that's fine, it is
+the same CLI.)
+
+## 3. Credentials
+
+Create a key in Clay under **Settings → Account**, then make it available as
+`CLAY_API_KEY`:
+
+- **Claude Code** — merge it into `.claude/settings.local.json` (gitignored) under
+  `env`, preserving existing settings:
+
+  ```json
+  { "env": { "CLAY_API_KEY": "<the key>" } }
+  ```
+
+  Then tell the user to restart so it loads: `/exit`, then `claude --continue`.
+
+- **Codex / Cursor** — export it in the shell profile so both the CLI and the MCP
+  server pick it up, then restart the agent:
+
+  ```bash
+  echo 'export CLAY_API_KEY="<the key>"' >> "$HOME/.zshrc"   # or ~/.bashrc
+  export CLAY_API_KEY="<the key>"
+  ```
+
+## 4. Verify
+
+```bash
+clay whoami; echo "exit_code=$?"
+```
+
+`exit_code=0` with a `user`/`workspace` object means setup is complete.

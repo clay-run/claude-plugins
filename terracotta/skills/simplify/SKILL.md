@@ -9,7 +9,7 @@ Analyze the current workflow and suggest concrete simplifications to reduce comp
 
 ## Process
 
-1. **Read the workflow** using `read_workflow` (full mode) to get all node details
+1. **Read the workflow** using `read` (full mode) to get all node details
 2. **Analyze each node** against the simplification checklist below
 3. **Present findings** as a prioritized list of suggestions with specific changes
 4. **Apply changes** after user approval, using `edit_node` for efficiency

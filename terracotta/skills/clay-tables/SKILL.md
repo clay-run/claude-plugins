@@ -54,11 +54,11 @@ Examples:
 
 ### Saving query results to CSV
 
-After running `query_table`, save the results locally as a CSV file so the user can access them. Convert the JSON results array to CSV format and write it using the Write tool.
+After running the `table` tool (mode: query), save the results locally as a CSV file so the user can access them. Convert the JSON results array to CSV format and write it using the Write tool.
 
 Example flow:
 
-1. Run `query_table` to get results
+1. Run the `table` tool (mode: query) to get results
 2. Extract column headers from the first result row
 3. Convert each row to comma-separated values (quote fields containing commas)
 4. Write to a local file like `./query-results.csv`

@@ -1,10 +1,10 @@
 {
   "name": "clay",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Build with Clay in Codex",
   "author": { "name": "Clay" },
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./mcp.codex.json",
   "interface": {
     "displayName": "Clay",
     "shortDescription": "Build with Clay in Codex",
