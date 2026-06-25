@@ -23,11 +23,11 @@ Then open **Plugins** and install **clay**.
 
 Teams/Enterprise: Settings → Plugins → Add Marketplace → Import from Repo → `clay-run/agent-plugins`.
 
-Otherwise (local install): the repo root is a *marketplace*, so clone it and copy the plugin itself — the `terracotta/` folder, which holds the plugin manifest — into your Cursor plugins dir, then reload Cursor:
+Otherwise (local install): the repo root is a *marketplace*, so clone it and copy the plugin itself — the `clay/` folder, which holds the plugin manifest — into your Cursor plugins dir, then reload Cursor:
 
 ```
 git clone https://github.com/clay-run/agent-plugins.git
-cp -R agent-plugins/terracotta ~/.cursor/plugins/local/clay
+cp -R agent-plugins/clay ~/.cursor/plugins/local/clay
 ```
 
 ## Configuration
